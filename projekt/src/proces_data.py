@@ -110,66 +110,17 @@ if __name__ == '__main__':
             hog_48 = apply_hog(no_cross, pixels=(48, 48))
             hog_32 = apply_hog(no_cross, pixels=(32, 32))
             hog_24 = apply_hog(no_cross, pixels=(24, 24))
+            hog_16 = apply_hog(no_cross, pixels=(16, 16))
+            hog_12 = apply_hog(no_cross, pixels=(12, 12))
+            hog_8 = apply_hog(no_cross, pixels=(8, 8))
 
-            hog_img = cv2.add(hog_48, hog_32, hog_24)
+            hog_img = cv2.add(cv2.add(hog_48, hog_32, hog_24), cv2.add(hog_16, hog_12, hog_8))
 
             hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, hog_img))
             if hough is not None:
                 images = np.concatenate((hog_img, hough), axis=1)
                 show(img_file, images)
                 continue
-
-            multiplyed = multiply(hog_img)
-
-            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, multiplyed))
-            if hough is not None:
-                images = np.concatenate((hog_img, multiplyed, hough), axis=1)
-                show(img_file, images)
-                continue
-
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-            kernel2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-            img_dilation = cv2.dilate(multiplyed, kernel, iterations=1)
-            img_erosion = cv2.erode(img_dilation, kernel2, iterations=1)
-
-            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, img_erosion))
-            if hough is not None:
-                images = np.concatenate((hog_img, multiplyed, img_dilation, img_erosion, hough), axis=1)
-                show(img_file, images)
-                continue
-        
-
-            img_dilation2 = cv2.dilate(img_erosion, kernel, iterations=1)
-            img_erosion2 = cv2.erode(img_dilation2, kernel2, iterations=1)
-
-            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, img_erosion2))
-            if hough is not None:
-                images = np.concatenate((hog_img, multiplyed, img_dilation2, img_erosion2, hough), axis=1)
-                show(img_file, images)
-                continue
-
-            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, hog_32))
-            if hough is not None:
-                images = np.concatenate((hog_32, hough), axis=1)
-                show(img_file, images)
-                continue
-                
-            hough_img = cv2.add(hog_32, hog_24)
-            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, hough_img))
-            if hough is not None:
-                images = np.concatenate((hough_img, hough), axis=1)
-                show(img_file, images)
-                continue
-
-            multiplyed = multiply(hough_img)
-
-            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, multiplyed))
-            if hough is not None:
-                images = np.concatenate((multiplyed, hough), axis=1)
-                show(img_file, images)
-                continue
-
-                
 
             print(f"{img_file}: not found")
 
