@@ -5,6 +5,7 @@ import numpy as np
 from skimage.feature import hog
 import matplotlib.pyplot as plt
 from skimage import data, exposure
+from scipy import ndimage
 
 def detect_circles_with_hough(img, hough_img=None):
     img = img.copy()
@@ -13,41 +14,48 @@ def detect_circles_with_hough(img, hough_img=None):
         h_img = img
     h_img = cv2.cvtColor(h_img, cv2.COLOR_BGR2GRAY)
 
-    # img = cv2.medianBlur(img, 5)
-    rows = h_img.shape[0]
-    circles = cv2.HoughCircles(h_img, cv2.HOUGH_GRADIENT, 1, rows / 8,
-                               param1=100, param2=30,
-                               minRadius=0, maxRadius=0)
+    circles = cv2.HoughCircles(h_img, cv2.HOUGH_GRADIENT, 1, 10,
+                              param1=30, param2=90, minRadius=2, maxRadius=80)
     if circles is None:
-        return img
+        return None
     circles = np.uint16(np.around(circles))
     for i in circles[0, :]:
-        cv2.circle(img, (i[0], i[1]), i[2], (0, 255, 0), 2)
-        cv2.circle(img, (i[0], i[1]), 2, (0, 0, 255), 3)
+        cv2.circle(img, (i[0], i[1]), i[2], (0, 255, 0), 1)
+        cv2.circle(img, (i[0], i[1]), 0, (0, 0, 255), 2)
     return img
 
+def average_surroundings(img, col, row):
+    new_b, new_g, new_r = 0, 0, 0
+    cnt = 0
+    for i in range(-1, 2):
+        for j in range(-1, 2):
+            if (col + i < 0 or col + i >= img.shape[0] or 
+                row + j < 0 or row + j >= img.shape[1]):
+                # skip pixels outside the image boundaries
+                continue
+            if not np.all(img[col+i, row+j] == img[col+i, row+j][0]):
+                continue
+            cnt += 1
+            new_b += img[col+i, row+j][0]
+            new_g += img[col+i, row+j][1]
+            new_r += img[col+i, row+j][2]
+    return (int(new_b/cnt), int(new_g/cnt), int(new_r/cnt))
 
-def average_surroundings(image, col, row):
-    new_image = image.copy()
-    neighbours = new_image[col-1:col+2, row-1:row+2, :]
-    neighbours = neighbours.reshape((-1, 3))
-    neighbours = neighbours[(neighbours[:, 0] != 0) | (neighbours[:, 1] != 0)]
-    return tuple(np.round(np.mean(neighbours, axis=0)).astype(int))
 
 
 def remove_cross(image):
     new_image = np.copy(image)
-    for col in range(image.shape[0]):
-        for row in range(image.shape[1]):
-            pixel = image[col, row]
+    for col in range(new_image.shape[0]):
+        for row in range(new_image.shape[1]):
+            pixel = new_image[col, row]
             if not np.all(pixel == pixel[0]):
                 new_image[col, row] = average_surroundings(new_image, col, row)
     return new_image
 
 
-def apply_hog(image):
+def apply_hog(image, pixels=(32, 32)):
     new_image = image.copy()
-    fd, hog_image = hog(new_image, orientations=8, pixels_per_cell=(8, 8),
+    fd, hog_image = hog(new_image, orientations=16, pixels_per_cell=pixels,
                     cells_per_block=(1, 1), visualize=True, channel_axis=-1)
 
     hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
@@ -59,8 +67,18 @@ def apply_hog(image):
     hog_image_rescaled = hog_image_rescaled.astype(np.uint8)
 
     return hog_image_rescaled
-    
-def resize_img(img, scale_percent=50):
+
+def multiply(image):
+    new_image = np.copy(image)
+    for col in range(new_image.shape[0]):
+        for row in range(new_image.shape[1]):
+            if new_image[col, row][0] <= 10:
+                new_image[col, row] = (0, 0, 0)
+            else:
+                new_image[col, row] = (new_image[col, row] *2)
+    return new_image
+
+def resize_img(img, scale_percent=100):
     new_image = img.copy()
     width = int(new_image.shape[1] * scale_percent / 100)
     height = int(new_image.shape[0] * scale_percent / 100)
@@ -69,36 +87,92 @@ def resize_img(img, scale_percent=50):
     # resize image
     return cv2.resize(new_image, dim, interpolation = cv2.INTER_AREA)
 
+def show(name,img):
+    cv2.namedWindow(name)
+    cv2.moveWindow(name, 10,40)
+    cv2.imshow(name,img)
+
+
 np.set_printoptions(threshold=sys.maxsize)
 if __name__ == '__main__':
     directory = 'Circle_Center_Detection'
-    img_file = 'Circle_Center_Detection/complicated_detection/2022-07-21_14-12-31-361_InputImageWithCenterCross_.png'
-    #img_file = 'Circle_Center_Detection/easy_to_detect/30.00kV_0.80nA_2.07mm_620.png'
+    img_file = 'Circle_Center_Detection/complicated_detection/2022-01-26_16-05-05-931_Step1SpiralFindRoughCenter_wd_4.0000E-003_hfw_1.00E-003.png'
+    # img_file = 'Circle_Center_Detection/easy_to_detect/30.00kV_0.80nA_2.07mm_624.png'
 
-    """
+    
     for subdir, dirs, files in os.walk(directory):
         for file_name in files:
             img_file = os.path.join(subdir, file_name)
-    """
+    
 
-    img = resize_img(cv2.imread(img_file))
-    no_cross =  remove_cross(img)
-    hog_img = apply_hog(no_cross)
-    hough = detect_circles_with_hough(no_cross)
-    hog_hough = detect_circles_with_hough(hog_img)
-    img_hough = detect_circles_with_hough(no_cross, hog_img)
+            img = resize_img(cv2.imread(img_file))
+            no_cross =  remove_cross(img)
+            hog_48 = apply_hog(no_cross, pixels=(48, 48))
+            hog_32 = apply_hog(no_cross, pixels=(32, 32))
+            hog_24 = apply_hog(no_cross, pixels=(24, 24))
 
-    """
-    print('Shape of img:', img.shape)
-    print('Shape of no_cross:', no_cross.shape)
-    print('Shape of hog_img:', hog_img.shape)
-    print('Shape of hough:', hough.shape)
-    print('Shape of hog_hough:', hog_hough.shape)
-    print('Shape of img_hough:', img_hough.shape)
-    """
+            hog_img = cv2.add(hog_48, hog_32, hog_24)
 
-    images = np.concatenate((img, no_cross, hog_img, hough, hog_hough, img_hough), axis=1)
+            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, hog_img))
+            if hough is not None:
+                images = np.concatenate((hog_img, hough), axis=1)
+                show(img_file, images)
+                continue
 
-    cv2.imshow(img_file,images)
-    cv2.waitKey()
-    cv2.destroyAllWindows()
+            multiplyed = multiply(hog_img)
+
+            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, multiplyed))
+            if hough is not None:
+                images = np.concatenate((hog_img, multiplyed, hough), axis=1)
+                show(img_file, images)
+                continue
+
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+            kernel2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            img_dilation = cv2.dilate(multiplyed, kernel, iterations=1)
+            img_erosion = cv2.erode(img_dilation, kernel2, iterations=1)
+
+            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, img_erosion))
+            if hough is not None:
+                images = np.concatenate((hog_img, multiplyed, img_dilation, img_erosion, hough), axis=1)
+                show(img_file, images)
+                continue
+        
+
+            img_dilation2 = cv2.dilate(img_erosion, kernel, iterations=1)
+            img_erosion2 = cv2.erode(img_dilation2, kernel2, iterations=1)
+
+            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, img_erosion2))
+            if hough is not None:
+                images = np.concatenate((hog_img, multiplyed, img_dilation2, img_erosion2, hough), axis=1)
+                show(img_file, images)
+                continue
+
+            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, hog_32))
+            if hough is not None:
+                images = np.concatenate((hog_32, hough), axis=1)
+                show(img_file, images)
+                continue
+                
+            hough_img = cv2.add(hog_32, hog_24)
+            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, hough_img))
+            if hough is not None:
+                images = np.concatenate((hough_img, hough), axis=1)
+                show(img_file, images)
+                continue
+
+            multiplyed = multiply(hough_img)
+
+            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, multiplyed))
+            if hough is not None:
+                images = np.concatenate((multiplyed, hough), axis=1)
+                show(img_file, images)
+                continue
+
+                
+
+            print(f"{img_file}: not found")
+
+        cv2.waitKey()
+        cv2.destroyAllWindows()
+        print("==============================")
