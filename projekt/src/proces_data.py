@@ -71,6 +71,9 @@ def find_farthest_points(image):
     # Get the coordinates of all white pixels in the image
     white_pixels = np.argwhere(np.all(image == [255, 255, 255], axis=-1))
 
+    if len(white_pixels) < 2:
+        return([0, 0], [0, 0], [0, 0])
+
     # Compute pairwise distances between white pixels
     dist_matrix = cdist(white_pixels, white_pixels)
 
@@ -78,7 +81,10 @@ def find_farthest_points(image):
     max_dist_idx = np.unravel_index(np.argmax(dist_matrix), dist_matrix.shape)
     return (white_pixels[max_dist_idx[0]], white_pixels[int(max_dist_idx[1]/2)], white_pixels[max_dist_idx[1]])
 
+
 def find_circle_center(p1, p2, p3):
+    if (p2[1] - p1[1]) == 0 or (p3[1] - p2[1]) == 0:
+        return  np.array([0, 0])
     # Calculate the perpendicular bisectors of the sides
     mid12 = (p1 + p2) / 2
     mid23 = (p2 + p3) / 2
@@ -88,9 +94,7 @@ def find_circle_center(p1, p2, p3):
     intercept23 = mid23[1] - slope23 * mid23[0]
     x = (intercept23 - intercept12) / (slope12 - slope23)
     y = slope12 * x + intercept12
-    center = np.array([x, y])
-
-    return center
+    return np.array([x, y])
 
 def show(name,img):
     cv2.namedWindow(name)
@@ -99,106 +103,87 @@ def show(name,img):
 
 if __name__ == '__main__':
     directory = 'Circle_Center_Detection'
-    img_file = 'Circle_Center_Detection/complicated_detection/2022-07-21_14-11-31-071_InputImageWithCenterCross_.png'
-    # img_file = 'Circle_Center_Detection/easy_to_detect/30.00kV_0.80nA_2.07mm_624.png'2022-01-24_16-07-03-362_CirDetcTestImg27_CentDet_False_CentInBorder_True_X_-1,00_Y_-1,00_border_15,00_highHfw_False.png
-    img_file = 'Circle_Center_Detection/on_edge/2022-01-24_16-07-03-362_CirDetcTestImg27_CentDet_False_CentInBorder_True_X_-1,00_Y_-1,00_border_15,00_highHfw_False.png'
-
-    """
+    
     for subdir, dirs, files in os.walk(directory):
         for file_name in files:
             img_file = os.path.join(subdir, file_name)
-    """
+            
+            img = cv2.imread(img_file)
+            no_cross =  remove_cross(img)
 
-    img = cv2.imread(img_file)
-    no_cross =  remove_cross(img)
-    
-    hog_32 = apply_hog(no_cross, pixels=(32, 32))
-    hog_16 = apply_hog(no_cross, pixels=(16, 16))
-    hog_8 = apply_hog(no_cross, pixels=(8, 8))
+            edges = cv2.Canny(no_cross, 40, 40)
+            edges_no_cross = np.expand_dims(edges, axis=-1)
+            edges_no_cross = np.repeat(edges_no_cross, 3, axis=-1)
 
-    hog_img = cv2.add(hog_32, hog_16, hog_8)
+            
+            hog_32 = apply_hog(no_cross, pixels=(32, 32))
+            hog_16 = apply_hog(no_cross, pixels=(16, 16))
+            hog_8 = apply_hog(no_cross, pixels=(8, 8))
 
-    to_find = cv2.subtract(no_cross, hog_img)
-    hough = detect_circles_with_hough(no_cross, to_find)
-    if hough is not None:
-        print("32")
-        images = np.concatenate((hog_img, to_find, hough), axis=1)
-        show(img_file, images)
-        #continue
+            hog_img = cv2.add(cv2.add(hog_32, hog_16, hog_8), edges_no_cross.copy())
 
-    hog_48 = apply_hog(no_cross, pixels=(48, 48))
-    hog_24 = apply_hog(no_cross, pixels=(24, 24))
-    hog_12 = apply_hog(no_cross, pixels=(12, 12))
+            to_find = cv2.subtract(no_cross, hog_img)
+            hough = detect_circles_with_hough(no_cross, to_find)
+            if hough is not None:
+                print("32")
+                images = np.concatenate((edges_no_cross.copy(), hog_img, to_find, hough), axis=1)
+                show(img_file, images)
+                continue
 
-    hog_img = cv2.add(hog_48, hog_24, hog_12)
-    to_find = cv2.subtract(no_cross, hog_img)
-    hough = detect_circles_with_hough(no_cross, to_find)
-    if hough is not None:
-        print("48")
-        images = np.concatenate((hog_img, to_find, hough), axis=1)
-        show(img_file, images)
-        #continue
+            hog_48 = apply_hog(no_cross, pixels=(48, 48))
+            hog_24 = apply_hog(no_cross, pixels=(24, 24))
+            hog_12 = apply_hog(no_cross, pixels=(12, 12))
 
-    hog_64 = apply_hog(no_cross, pixels=(64, 64))
+            hog_img = cv2.add(cv2.add(hog_48, hog_24, hog_12), edges_no_cross.copy())
+            to_find = cv2.subtract(no_cross, hog_img)
+            hough = detect_circles_with_hough(no_cross, to_find)
+            if hough is not None:
+                print("48")
+                images = np.concatenate((edges_no_cross.copy(), hog_img, to_find, hough), axis=1)
+                show(img_file, images)
+                continue
 
-    hog_img = cv2.add( cv2.add(hog_64, hog_32),  cv2.add(hog_16, hog_8))
-    to_find = cv2.subtract(no_cross, hog_img)
-    hough = detect_circles_with_hough(no_cross, to_find)
-    if hough is not None:
-        print("64")
-        images = np.concatenate((hog_img, to_find, hough), axis=1)
-        show(img_file, images)
-        #continue
-    
-    if hough is None:
-        hog_img = cv2.add(hog_32, hog_16, hog_8)
-        
+            hog_64 = apply_hog(no_cross, pixels=(64, 64))
 
-        kernell = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]])
+            hog_img = cv2.add( cv2.add(hog_64, hog_32),  cv2.add(hog_16, hog_8), edges_no_cross.copy())
+            to_find = cv2.subtract(no_cross, hog_img)
+            hough = detect_circles_with_hough(no_cross, to_find)
+            if hough is not None:
+                print("64")
+                images = np.concatenate((edges_no_cross.copy(), hog_img, to_find, hough), axis=1)
+                show(img_file, images)
+                continue
 
-        blur = cv2.medianBlur(to_find, 5)
+            hough = detect_circles_with_hough(no_cross, edges_no_cross.copy())
+            if hough is not None:
+                print("64")
+                images = np.concatenate((edges_no_cross.copy(), hough), axis=1)
+                show(img_file, images)
+                continue
+            
+            if hough is None:
+                        
+                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+                kernel2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                img_dilation2 = cv2.dilate(edges_no_cross.copy(), kernel2, iterations=3)
+                img_erosion2 = cv2.erode(img_dilation2, kernel, iterations=2)
+                img_dilation3 = cv2.dilate(img_erosion2, kernel, iterations=100)
+                img_erosion3 = cv2.erode(img_dilation3, kernel, iterations=99)
 
-        img = cv2.add(blur, blur)
+                edges = cv2.Canny(cv2.subtract(no_cross, img_erosion3), 50, 150)
+                edges_with_diml = np.expand_dims(edges, axis=-1)
+                edges_with_diml = np.repeat(edges_with_diml, 3, axis=-1)
 
-        result = cv2.filter2D(img, -1, kernell)
-
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-        img_dilation = cv2.dilate(result, kernel, iterations=2)
-        img_erosion = cv2.erode(img_dilation, kernel, iterations=2)
-
-        img_mult = multiply(img_erosion, trashhold=0)
-
-        edges = cv2.Canny(img_mult, 50, 150)
-        edges_with_dim = np.expand_dims(edges, axis=-1)
-        edges_with_dim = np.repeat(edges_with_dim, 3, axis=-1)
-
-        kernel2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        img_dilation2 = cv2.dilate(edges_with_dim, kernel2, iterations=20)
-        img_erosion2 = cv2.erode(img_dilation2, kernel2, iterations=20)
-
-        edges = cv2.Canny(img_erosion2, 50, 150)
-        edges_with_diml = np.expand_dims(edges, axis=-1)
-        edges_with_diml = np.repeat(edges_with_diml, 3, axis=-1)
-
-        p1, p2, p3 = find_farthest_points(edges_with_diml)
-        center = find_circle_center(*find_farthest_points(edges_with_diml))
-        radius = int(np.linalg.norm(p1 - center))
-
-        
-
-        end = cv2.subtract(no_cross, edges_with_diml)
-
-        hough = detect_circles_with_hough(no_cross, end)
-        cv2.circle(no_cross, tuple(center.astype(int)), 0, (0, 255, 0), 1)
-        if hough is not None:
-            images = np.concatenate((no_cross, hog_img, img_dilation, img_erosion, img_erosion2, edges_with_diml, end, hough), axis=1)
-        else:
-            images = np.concatenate((no_cross, hog_img, img_dilation, img_erosion, img_erosion2, edges_with_diml, end, end), axis=1)
-        show(img_file, images)
+                p1, p2, p3 = find_farthest_points(edges_with_diml)
+                center = find_circle_center(*find_farthest_points(edges_with_diml))
+                print(center)
+            
+                images = np.concatenate((edges_no_cross.copy(),img_dilation2, img_erosion2, img_dilation3, img_erosion3, edges_with_diml, no_cross), axis=1)
+                show(img_file, images)
 
 
-        print(f"{img_file}: not found")
+                print(f"{img_file}: not found")
 
-    cv2.waitKey()
-    cv2.destroyAllWindows()
-    print("==============================")
+        cv2.waitKey()
+        cv2.destroyAllWindows()
+        print("==============================")
