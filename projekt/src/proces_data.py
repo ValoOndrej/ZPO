@@ -68,25 +68,6 @@ def apply_hog(image, pixels=(32, 32)):
 
     return hog_image_rescaled
 
-def multiply(image):
-    new_image = np.copy(image)
-    for col in range(new_image.shape[0]):
-        for row in range(new_image.shape[1]):
-            if new_image[col, row][0] <= 10:
-                new_image[col, row] = (0, 0, 0)
-            else:
-                new_image[col, row] = (new_image[col, row] *2)
-    return new_image
-
-def resize_img(img, scale_percent=100):
-    new_image = img.copy()
-    width = int(new_image.shape[1] * scale_percent / 100)
-    height = int(new_image.shape[0] * scale_percent / 100)
-    dim = (width, height)
-    
-    # resize image
-    return cv2.resize(new_image, dim, interpolation = cv2.INTER_AREA)
-
 def show(name,img):
     cv2.namedWindow(name)
     cv2.moveWindow(name, 10,40)
@@ -105,8 +86,10 @@ if __name__ == '__main__':
             img_file = os.path.join(subdir, file_name)
     
 
-            img = resize_img(cv2.imread(img_file))
+            img = cv2.imread(img_file)
             no_cross =  remove_cross(img)
+            hog_96 = apply_hog(no_cross, pixels=(96, 96))
+            hog_64 = apply_hog(no_cross, pixels=(64, 64))
             hog_48 = apply_hog(no_cross, pixels=(48, 48))
             hog_32 = apply_hog(no_cross, pixels=(32, 32))
             hog_24 = apply_hog(no_cross, pixels=(24, 24))
@@ -114,11 +97,30 @@ if __name__ == '__main__':
             hog_12 = apply_hog(no_cross, pixels=(12, 12))
             hog_8 = apply_hog(no_cross, pixels=(8, 8))
 
-            hog_img = cv2.add(cv2.add(hog_48, hog_32, hog_24), cv2.add(hog_16, hog_12, hog_8))
-
-            hough = detect_circles_with_hough(no_cross, cv2.subtract(no_cross, hog_img))
+            hog_img = cv2.add(hog_32, hog_16, hog_8)
+            to_find = cv2.subtract(no_cross, hog_img)
+            hough = detect_circles_with_hough(no_cross, to_find)
             if hough is not None:
-                images = np.concatenate((hog_img, hough), axis=1)
+                print("32")
+                images = np.concatenate((hog_img, to_find, hough), axis=1)
+                show(img_file, images)
+                continue
+
+            hog_img = cv2.add(hog_48, hog_24, hog_12)
+            to_find = cv2.subtract(no_cross, hog_img)
+            hough = detect_circles_with_hough(no_cross, to_find)
+            if hough is not None:
+                print("48")
+                images = np.concatenate((hog_img, to_find, hough), axis=1)
+                show(img_file, images)
+                continue
+
+            hog_img = cv2.add( cv2.add(hog_64, hog_32),  cv2.add(hog_16, hog_8))
+            to_find = cv2.subtract(no_cross, hog_img)
+            hough = detect_circles_with_hough(no_cross, to_find)
+            if hough is not None:
+                print("64")
+                images = np.concatenate((hog_img, to_find, hough), axis=1)
                 show(img_file, images)
                 continue
 
