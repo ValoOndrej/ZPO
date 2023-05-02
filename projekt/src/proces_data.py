@@ -91,7 +91,7 @@ def show(name,img):
     cv2.moveWindow(name, 10,40)
     cv2.imshow(name,img)
 
-def find_ceter(img_file, show=False):  
+def find_ceter(img_file, show_i=False):  
     img = cv2.imread(img_file)
     no_cross =  remove_cross(img)
 
@@ -108,7 +108,7 @@ def find_ceter(img_file, show=False):
     to_find = cv2.subtract(no_cross, hog_img)
     hough, center = detect_circles_with_hough(no_cross, to_find)
     if hough is not None:
-        if show:
+        if show_i:
             images = np.concatenate((hog_img, hough), axis=1)
             show(img_file, images)
         return center
@@ -121,7 +121,7 @@ def find_ceter(img_file, show=False):
     to_find = cv2.subtract(no_cross, hog_img)
     hough, center = detect_circles_with_hough(no_cross, to_find)
     if hough is not None:
-        if show:
+        if show_i:
             images = np.concatenate((hog_img, hough), axis=1)
             show(img_file, images)
         return center
@@ -132,14 +132,14 @@ def find_ceter(img_file, show=False):
     to_find = cv2.subtract(no_cross, hog_img)
     hough, center = detect_circles_with_hough(no_cross, to_find)
     if hough is not None:
-        if show:
+        if show_i:
             images = np.concatenate((hog_img, hough), axis=1)
             show(img_file, images)
         return center
 
     hough, center = detect_circles_with_hough(no_cross, edges_no_cross.copy())
     if hough is not None:
-        if show:
+        if show_i:
             images = np.concatenate((edges_no_cross.copy(), hough), axis=1)
             show(img_file, images)
         return center
@@ -169,7 +169,7 @@ if __name__ == '__main__':
     for subdir, dirs, files in os.walk(directory):
         for file_name in files:
             img_file = os.path.join(subdir, file_name)
-            print(f"in image {file_name} center is {find_ceter(img_file, show=args.show)}")
+            print(f"in image {file_name} center is {find_ceter(img_file, show_i=args.show)}")
 
         if args.show:
             cv2.waitKey()
