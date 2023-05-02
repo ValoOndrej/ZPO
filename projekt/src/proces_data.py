@@ -1,13 +1,8 @@
 import os
 import cv2
-import sys
 import numpy as np
 from skimage.feature import hog
-import matplotlib.pyplot as plt
-from skimage import data, exposure
-from scipy import ndimage
-from scipy.signal import convolve2d
-import itertools
+from skimage import exposure
 from scipy.spatial.distance import cdist
 import argparse
 
